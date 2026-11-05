@@ -1,6 +1,6 @@
 # gmx
 
-**Go Main Expansion**: a command-line scaffolder that generates a production-ready [Gin](https://gin-gonic.com/) backend in one command, with optional [Supabase](https://supabase.com/) integration.
+**Go Main Expansion**: a command-line scaffolder that generates a development-ready [Gin](https://gin-gonic.com/) backend in one command, with optional [Supabase](https://supabase.com/) integration.
 
 ```bash
 gmx build myapi --db supabase
