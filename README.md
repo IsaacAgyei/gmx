@@ -7,7 +7,7 @@ Scaffolds a Go + Gin backend: `gmx build`.
 Requires Go 1.22 or newer.
 
 ```bash
-go install github.com/isaacagyei/gmx@latest
+go install github.com/IsaacAgyei/gmx@latest
 ```
 
 Make sure `$(go env GOPATH)/bin` is on your PATH, then run `gmx version` to check.
@@ -48,7 +48,7 @@ Copyright (C) 2026 Isaac Agyei
 
 gmx is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
-Original source: [https://github.com/isaacagyei/gmx](https://github.com/isaacagyei/gmx)
+Original source: [https://github.com/IsaacAgyei/gmx](https://github.com/IsaacAgyei/gmx)
 
 Modified versions must carry prominent notices stating they were changed, and must be released under the same license.
 
