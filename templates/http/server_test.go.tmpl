@@ -1,0 +1,95 @@
+package server
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+)
+
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ALLOWED_ORIGINS", "https://app.example.com, https://www.app.example.com")
+	return New()
+}
+
+func serve(s *Server, method, path string, headers map[string]string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	s.engine.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestServer_PingWorks(t *testing.T) {
+	s := newTestServer(t)
+	rec := serve(s, "GET", "{{.Prefix}}/test/ping", nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "pong") {
+		t.Errorf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestServer_CORSPreflightSucceeds(t *testing.T) {
+	s := newTestServer(t)
+	rec := serve(s, "OPTIONS", "{{.Prefix}}/test/ping", map[string]string{
+		"Origin":                         "https://app.example.com",
+		"Access-Control-Request-Method":  "GET",
+		"Access-Control-Request-Headers": "authorization,content-type",
+	})
+
+	if rec.Code >= 300 {
+		t.Fatalf("preflight status = %d, want 2xx", rec.Code)
+	}
+	if rec.Header().Get("Access-Control-Allow-Origin") == "" {
+		t.Error("missing Access-Control-Allow-Origin")
+	}
+}
+
+func TestServer_DoesNotAllowCredentialedCrossOriginRequests(t *testing.T) {
+	s := newTestServer(t)
+	rec := serve(s, "GET", "{{.Prefix}}/test/ping", map[string]string{"Origin": "https://evil.example.com"})
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got == "true" {
+		t.Errorf("Access-Control-Allow-Credentials = %q", got)
+	}
+}
+
+func TestServer_CORSOnlyAllowsListedOrigins(t *testing.T) {
+	s := newTestServer(t)
+
+	// Second entry has a leading space in ALLOWED_ORIGINS; it must still match.
+	rec := serve(s, "GET", "{{.Prefix}}/test/ping", map[string]string{"Origin": "https://www.app.example.com"})
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://www.app.example.com" {
+		t.Errorf("listed origin: Access-Control-Allow-Origin = %q", got)
+	}
+
+	rec = serve(s, "GET", "{{.Prefix}}/test/ping", map[string]string{"Origin": "https://evil.example.com"})
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Errorf("unlisted origin got Access-Control-Allow-Origin = %q", got)
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("unlisted origin: status %d, want 403", rec.Code)
+	}
+}
+
+func TestServer_CORSDefaultsToLocalDevServer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("ALLOWED_ORIGINS", "")
+	s := New()
+
+	rec := serve(s, "GET", "/nope", map[string]string{"Origin": "http://localhost:4200"})
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:4200" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want http://localhost:4200", got)
+	}
+}
+
+func TestServer_UnknownRoutesAre404(t *testing.T) {
+	s := newTestServer(t)
+	if rec := serve(s, "GET", "/nope", nil); rec.Code != http.StatusNotFound {
+		t.Errorf("status %d, want 404", rec.Code)
+	}
+}

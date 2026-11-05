@@ -1,0 +1,20 @@
+package routes
+
+import (
+	"{{.Module}}/routes/ping"
+	"{{.Module}}/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Handler struct{}
+
+func (h *Handler) Register(engine *gin.Engine) {
+	// every service the routes use lives in the service package
+	svc := service.New()
+
+	// this is the parent route group, this route will be used for all child routes
+	v1 := engine.Group("{{.Prefix}}")
+
+	ping.RegisterPingRoutes(v1, svc.Ping) // GET {{.Prefix}}/test/ping
+}

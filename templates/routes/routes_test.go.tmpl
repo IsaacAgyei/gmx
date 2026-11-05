@@ -1,0 +1,47 @@
+package routes_test
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"{{.Module}}/routes"
+
+	"github.com/gin-gonic/gin"
+)
+
+func init() { gin.SetMode(gin.TestMode) }
+
+func newEngine() *gin.Engine {
+	engine := gin.New()
+	(&routes.Handler{}).Register(engine)
+	return engine
+}
+
+func TestAllRoutesLiveUnderTheVersionedPrefix(t *testing.T) {
+	for _, r := range newEngine().Routes() {
+		if !strings.HasPrefix(r.Path, "{{.Prefix}}/") {
+			t.Errorf("%s %s is outside {{.Prefix}}", r.Method, r.Path)
+		}
+	}
+}
+
+func TestPingReturnsPong(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newEngine().ServeHTTP(rec, httptest.NewRequest("GET", "{{.Prefix}}/test/ping", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "pong") {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUnknownRoutesAre404(t *testing.T) {
+	engine := newEngine()
+	for _, path := range []string{"/", "{{.Prefix}}", "/admin"} {
+		rec := httptest.NewRecorder()
+		engine.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET %s -> %d, want 404", path, rec.Code)
+		}
+	}
+}

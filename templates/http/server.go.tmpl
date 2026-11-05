@@ -1,0 +1,52 @@
+package server
+
+import (
+	"os"
+	"strings"
+	"time"
+
+	routes "{{.Module}}/routes"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+)
+
+type Server struct {
+	engine *gin.Engine
+}
+
+func New() *Server {
+	engine := gin.Default()
+
+	// Browser origins allowed to call the API. Set ALLOWED_ORIGINS in prod as a comma-separated
+	// list, e.g. ALLOWED_ORIGINS=https://www.yourdomain.com,https://yourdomain.com
+	// Unset falls back to the local Angular dev server.
+	origins := []string{"http://localhost:4200"}
+	if v := os.Getenv("ALLOWED_ORIGINS"); v != "" {
+		origins = nil
+		for _, o := range strings.Split(v, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				origins = append(origins, o)
+			}
+		}
+	}
+
+	engine.Use(cors.New(cors.Config{
+		AllowOrigins:           origins,
+		AllowMethods:           []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:           []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		ExposeHeaders:          []string{"Content-Length"},
+		AllowCredentials:       false,
+		AllowBrowserExtensions: true,
+		MaxAge:                 12 * time.Hour, // how long the browser caches the preflight response
+	}))
+
+	h := &routes.Handler{}
+	h.Register(engine)
+
+	return &Server{engine: engine}
+}
+
+func (s *Server) Run() error {
+	return s.engine.Run(":8080")
+}

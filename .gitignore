@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Built binaries (go build -o gmx, go build on Windows)
+/gmx
+*.exe
+
+# Release output (if you add GoReleaser later)
+/dist/
+
+# Editor and IDE folders
+.idea/
+.vscode/
+*.swp
+
+# Go test and coverage output
+*.test
+*.out
+coverage.html
+
+# Local workspace file (personal, not part of the project)
+go.work
+go.work.sum
+
+# Secrets, in case you test with real values
+.env

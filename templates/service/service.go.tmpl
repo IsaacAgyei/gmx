@@ -1,0 +1,16 @@
+// Package service holds the services used by the routes.
+//
+// To add one: create <name>.go with a New<Name>Service constructor, add a field to Services
+// and wire it up in New.
+package service
+
+// Services is the registry of all services available to the routes.
+type Services struct {
+	Ping *PingService
+}
+
+func New() *Services {
+	return &Services{
+		Ping: NewPingService(),
+	}
+}

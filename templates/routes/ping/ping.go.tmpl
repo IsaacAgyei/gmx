@@ -1,0 +1,17 @@
+package ping
+
+import (
+	"net/http"
+
+	"{{.Module}}/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+// RegisterPingRoutes registers GET <group>/test/ping
+func RegisterPingRoutes(rg *gin.RouterGroup, svc *service.PingService) {
+	g := rg.Group("/test")
+	g.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": svc.Pong()})
+	})
+}

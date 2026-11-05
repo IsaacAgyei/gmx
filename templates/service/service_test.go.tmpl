@@ -1,0 +1,13 @@
+package service_test
+
+import (
+	"testing"
+
+	"{{.Module}}/service"
+)
+
+func TestPingService(t *testing.T) {
+	if got := service.New().Ping.Pong(); got != "pong" {
+		t.Errorf("Pong() = %q", got)
+	}
+}
