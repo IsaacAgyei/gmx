@@ -1,4 +1,4 @@
-# gmx
+# gmx > go-main-expansion
 
 Scaffolds a Go + Gin backend: `gmx build`.
 
