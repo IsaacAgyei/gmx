@@ -1,20 +1,27 @@
 package routes
 
 import (
+{{- if .DB}}
+	"{{.Module}}/database"
+{{- end}}
 	"{{.Module}}/routes/ping"
 	"{{.Module}}/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct{}
+type Handler struct {
+{{- if .DB}}
+	DB database.IDatabase // may be nil (tests); /test/db then reports 503
+{{- end}}
+}
 
 func (h *Handler) Register(engine *gin.Engine) {
 	// every service the routes use lives in the service package
-	svc := service.New()
+	svc := service.New({{if .DB}}h.DB{{end}})
 
 	// this is the parent route group, this route will be used for all child routes
 	v1 := engine.Group("{{.Prefix}}")
 
-	ping.RegisterPingRoutes(v1, svc.Ping) // GET {{.Prefix}}/test/ping
+	ping.RegisterPingRoutes(v1, svc.Ping) // GET {{.Prefix}}/test/ping{{if .DB}}, GET {{.Prefix}}/test/db{{end}}
 }

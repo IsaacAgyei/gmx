@@ -21,6 +21,23 @@ var templatesFS embed.FS
 type Data struct {
 	Module string // Go module path, e.g. "backend"
 	Prefix string // parent route group, e.g. "/api/v1"
+	DB     string // database provider: "" (none) or "supabase"
+}
+
+// dbProviders are the values accepted by --db; dbDeps are the extra modules each needs.
+var dbProviders = []string{"supabase"}
+
+var dbDeps = map[string][]string{
+	"supabase": {"github.com/supabase-community/supabase-go@latest"},
+}
+
+func contains(l []string, s string) bool {
+	for _, v := range l {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 // goDeps are installed into the new project with `go get`.
@@ -36,6 +53,7 @@ func runBuild(args []string) error {
 	prefix := fset.String("prefix", "/api/v1", "parent route group prefix")
 	skip := fset.Bool("skip-install", false, "skip go get / go mod tidy")
 	force := fset.Bool("force", false, "allow a non-empty target directory")
+	db := fset.String("db", "", "database provider: supabase (default: none)")
 
 	// Allow the directory argument before or after the flags.
 	var positional []string
@@ -62,7 +80,10 @@ func runBuild(args []string) error {
 		*module = filepath.Base(filepath.Clean(dir))
 	}
 	p := "/" + strings.Trim(*prefix, "/")
-	data := Data{Module: *module, Prefix: p}
+	if *db != "" && !contains(dbProviders, *db) {
+		return fmt.Errorf("unknown --db %q (supported: %s)", *db, strings.Join(dbProviders, ", "))
+	}
+	data := Data{Module: *module, Prefix: p, DB: *db}
 
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 && !*force {
 		return fmt.Errorf("%s is not empty (use --force to write anyway)", dir)
@@ -76,7 +97,17 @@ func runBuild(args []string) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
+		if d.Name() == ".DS_Store" {
+			return nil
+		}
 		rel := strings.TrimPrefix(p, "templates/")
+		// database templates are opt-in: database/*.tmpl and database/<provider>/ for the chosen one
+		if strings.HasPrefix(rel, "database/") {
+			parts := strings.Split(rel, "/")
+			if data.DB == "" || (len(parts) > 2 && parts[1] != data.DB) {
+				return nil
+			}
+		}
 		rel = strings.TrimSuffix(rel, ".tmpl")
 		rel = path.Clean(rel)
 		// dotfiles are stored without the dot so embed/git don't treat them specially
@@ -108,15 +139,20 @@ func runBuild(args []string) error {
 	}
 	fmt.Printf("created %d files in %s (module %q, prefix %q)\n", count, dir, data.Module, data.Prefix)
 
-	if err := goMod(dir, data.Module, *skip); err != nil {
+	if err := goMod(dir, data, *skip); err != nil {
 		return err
 	}
 
-	fmt.Printf("\nDone. Next:\n  cd %s\n  go run .\n  curl localhost:8080%s/test/ping\n", dir, data.Prefix)
+	fmt.Printf("\nDone. Next:\n  cd %s\n", dir)
+	if data.DB != "" {
+		fmt.Println("  cp .env.example .env   # then fill in the database credentials")
+	}
+	fmt.Printf("  go run .\n  curl localhost:8080%s/test/ping\n url localhost:8080%s/test/db\n", data.Prefix)
 	return nil
 }
 
-func goMod(dir, module string, skip bool) error {
+func goMod(dir string, data Data, skip bool) error {
+	module := data.Module
 	if _, err := exec.LookPath("go"); err != nil {
 		fmt.Println("go not found on PATH; skipping module setup. Run `go mod init` and `go mod tidy` yourself.")
 		return nil
@@ -128,9 +164,11 @@ func goMod(dir, module string, skip bool) error {
 		fmt.Println("skipped dependency install (--skip-install). Run `go mod tidy` when online.")
 		return nil
 	}
-	fmt.Println("installing gin, cors, godotenv ...")
-	if err := runIn(dir, "go", append([]string{"get"}, goDeps...)...); err != nil {
-		fmt.Printf("\nwarning: could not install dependencies (%v).\nThe project files were created; run this inside %s when you are online:\n  go get %s && go mod tidy\n", err, dir, strings.Join(goDeps, " "))
+	deps := append([]string{}, goDeps...)
+	deps = append(deps, dbDeps[data.DB]...)
+	fmt.Println("installing dependencies ...")
+	if err := runIn(dir, "go", append([]string{"get"}, deps...)...); err != nil {
+		fmt.Printf("\nwarning: could not install dependencies (%v).\nThe project files were created; run this inside %s when you are online:\n  go get %s && go mod tidy\n", err, dir, strings.Join(deps, " "))
 		return nil
 	}
 	if err := runIn(dir, "go", "mod", "tidy"); err != nil {

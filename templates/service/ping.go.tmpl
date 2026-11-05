@@ -1,8 +1,34 @@
 package service
 
+{{- if .DB}}
+
+import (
+	"context"
+	"errors"
+
+	"{{.Module}}/database"
+)
+
+// PingService backs the public placeholder routes.
+type PingService struct {
+	db database.IDatabase
+}
+
+func NewPingService(db database.IDatabase) *PingService { return &PingService{db: db} }
+
+// DBPing checks that the database is reachable.
+func (s *PingService) DBPing(ctx context.Context) error {
+	if s.db == nil {
+		return errors.New("database not configured")
+	}
+	return s.db.Ping(ctx)
+}
+{{- else}}
+
 // PingService backs the public placeholder route.
 type PingService struct{}
 
 func NewPingService() *PingService { return &PingService{} }
+{{- end}}
 
 func (s *PingService) Pong() string { return "pong" }

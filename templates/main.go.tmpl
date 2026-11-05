@@ -1,7 +1,14 @@
 package main
 
 import (
+{{- if .DB}}
+	"context"
+{{- end}}
 	"log"
+
+{{- if .DB}}
+	"{{.Module}}/database/{{.DB}}"
+{{- end}}
 
 	server "{{.Module}}/http"
 
@@ -13,7 +20,17 @@ func main() {
 		log.Println("No .env file found, falling back to system env")
 	}
 
+{{- if .DB}}
+	db, err := {{.DB}}.New(context.Background())
+	if err != nil {
+		log.Fatal("Database setup failed: ", err)
+	}
+	defer db.Close()
+
+	s := server.New(db)
+{{- else}}
 	s := server.New()
+{{- end}}
 	if err := s.Run(); err != nil {
 		log.Fatal("Server failed to start: ", err)
 	}

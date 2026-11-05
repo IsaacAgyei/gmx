@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 const usage = `gmx - Go + Gin project generator
 

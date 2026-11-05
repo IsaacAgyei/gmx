@@ -1,2 +1,8 @@
 # Comma-separated browser origins allowed to call the API (defaults to http://localhost:4200)
 ALLOWED_ORIGINS=http://localhost:4200
+{{- if .DB}}
+
+# Supabase project URL and API key (use the service role key only on a trusted server)
+SUPABASE_URL=
+SUPABASE_KEY=
+{{- end}}

@@ -8,10 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterPingRoutes registers GET <group>/test/ping
+// RegisterPingRoutes registers GET <group>/test/ping{{if .DB}} and GET <group>/test/db{{end}}
 func RegisterPingRoutes(rg *gin.RouterGroup, svc *service.PingService) {
 	g := rg.Group("/test")
 	g.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": svc.Pong()})
 	})
+{{- if .DB}}
+	g.GET("/db", func(c *gin.Context) {
+		if err := svc.DBPing(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "database unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "database ok"})
+	})
+{{- end}}
 }

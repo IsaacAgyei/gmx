@@ -45,3 +45,13 @@ func TestUnknownRoutesAre404(t *testing.T) {
 		}
 	}
 }
+{{- if .DB}}
+
+func TestDBRouteIs503WithoutDatabase(t *testing.T) {
+	rec := httptest.NewRecorder()
+	newEngine().ServeHTTP(rec, httptest.NewRequest("GET", "{{.Prefix}}/test/db", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d, want 503", rec.Code)
+	}
+}
+{{- end}}

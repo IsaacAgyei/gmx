@@ -1,3 +1,3 @@
-module github.com/YOUR_GITHUB_USER/gmx
+module github.com/IsaacAgyei/gmx
 
 go 1.22

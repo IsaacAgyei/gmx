@@ -1,0 +1,27 @@
+// Package database defines the storage interface the services depend on.
+// Implementations live in subpackages (e.g. database/supabase).
+package database
+
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrNotFound     = errors.New("not found")
+	ErrUnauthorized = errors.New("unauthorized")
+	ErrConflict     = errors.New("conflict")
+)
+
+// UserProfile is the subset of user_profile that is safe to expose (no email).
+type UserProfile struct {
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+}
+
+type IDatabase interface {
+	Close()
+	Ping(ctx context.Context) error
+	GetProfileByUsername(ctx context.Context, username string) (*UserProfile, error)
+	GetProfileByUserID(ctx context.Context, userID string) (*UserProfile, error)
+}

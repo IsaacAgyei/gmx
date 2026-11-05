@@ -3,14 +3,16 @@
 // To add one: create <name>.go with a New<Name>Service constructor, add a field to Services
 // and wire it up in New.
 package service
-
+{{if .DB}}
+import "{{.Module}}/database"
+{{end}}
 // Services is the registry of all services available to the routes.
 type Services struct {
 	Ping *PingService
 }
 
-func New() *Services {
+func New({{if .DB}}db database.IDatabase{{end}}) *Services {
 	return &Services{
-		Ping: NewPingService(),
+		Ping: NewPingService({{if .DB}}db{{end}}),
 	}
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func TestPingService(t *testing.T) {
-	if got := service.New().Ping.Pong(); got != "pong" {
+	if got := service.New({{if .DB}}nil{{end}}).Ping.Pong(); got != "pong" {
 		t.Errorf("Pong() = %q", got)
 	}
 }

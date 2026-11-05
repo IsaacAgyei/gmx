@@ -1,0 +1,75 @@
+// Package supabase implements database.IDatabase on top of Supabase (PostgREST).
+package supabase
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
+	"{{.Module}}/database"
+
+	supa "github.com/supabase-community/supabase-go"
+)
+
+type DB struct {
+	Client *supa.Client
+}
+
+// New reads SUPABASE_URL and SUPABASE_KEY from the environment.
+func New(ctx context.Context) (database.IDatabase, error) {
+	url := os.Getenv("SUPABASE_URL")
+	key := os.Getenv("SUPABASE_KEY")
+	if url == "" || key == "" {
+		return nil, fmt.Errorf("SUPABASE_URL and SUPABASE_KEY must be set")
+	}
+
+	client, err := supa.NewClient(url, key, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create supabase client: %w", err)
+	}
+
+	log.Println("Supabase client initialized")
+	return &DB{Client: client}, nil
+}
+
+func (db *DB) Close() {}
+
+func (db *DB) Ping(ctx context.Context) error {
+	_, _, err := db.Client.From("user_profile").
+		Select("user_id", "exact", false).
+		Limit(1, "").
+		Execute()
+	if err != nil {
+		return fmt.Errorf("supabase unreachable: %w", err)
+	}
+	return nil
+}
+
+func (db *DB) GetProfileByUsername(ctx context.Context, username string) (*database.UserProfile, error) {
+	return db.getProfile("username", username)
+}
+
+func (db *DB) GetProfileByUserID(ctx context.Context, userID string) (*database.UserProfile, error) {
+	return db.getProfile("user_id", userID)
+}
+
+func (db *DB) getProfile(column, value string) (*database.UserProfile, error) {
+	body, _, err := db.Client.From("user_profile").
+		Select("user_id,username", "exact", false).
+		Eq(column, value).
+		Limit(1, "").
+		Execute()
+	if err != nil {
+		return nil, fmt.Errorf("query user_profile: %w", err)
+	}
+	var rows []database.UserProfile
+	if err := json.Unmarshal(body, &rows); err != nil {
+		return nil, fmt.Errorf("decode user_profile: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, database.ErrNotFound
+	}
+	return &rows[0], nil
+}
