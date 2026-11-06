@@ -1,0 +1,58 @@
+package login
+
+import (
+	"errors"
+	"log"
+	"net/http"
+
+	"{{.Module}}/database"
+	"{{.Module}}/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Request is the JSON body of POST <group>/auth/login.
+type Request struct {
+	Email    string `json:"email" binding:"required,email,max=254"`
+	Password string `json:"password" binding:"required,max=72"`
+}
+
+// RegisterLoginRoutes registers POST <group>/auth/login with a JSON body:
+// {"email": "user@example.com", "password": "secret-password"}
+// On success it returns the JWT access token and the refresh token.
+func RegisterLoginRoutes(rg *gin.RouterGroup, loginSvc *service.LoginService) {
+	g := rg.Group("/auth")
+
+	g.POST("/login", func(c *gin.Context) {
+		var req Request
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "a valid email and a password are required"})
+			return
+		}
+
+		session, err := loginSvc.Login(c.Request.Context(), req.Email, req.Password)
+		switch {
+		case err == nil:
+			c.Header("Cache-Control", "no-store") // the response carries tokens
+			c.JSON(http.StatusOK, gin.H{
+				"message":       "login successful",
+				"access_token":  session.AccessToken,
+				"refresh_token": session.RefreshToken,
+				"token_type":    session.TokenType,
+				"expires_in":    session.ExpiresIn,
+				"user_id":       session.UserID,
+			})
+		case errors.Is(err, database.ErrInvalidCredentials):
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "invalid email or password"})
+		case errors.Is(err, database.ErrEmailNotConfirmed):
+			c.JSON(http.StatusForbidden, gin.H{"message": "email not confirmed. Check your inbox"})
+		case errors.Is(err, database.ErrRateLimited):
+			c.JSON(http.StatusTooManyRequests, gin.H{"message": "too many attempts, try again later"})
+		case errors.Is(err, service.ErrAuthNotConfigured):
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "authentication is not available"})
+		default:
+			log.Printf("login failed: %v", err) // never log the password or tokens
+			c.JSON(http.StatusBadGateway, gin.H{"message": "login could not be completed. Please try again."})
+		}
+	})
+}

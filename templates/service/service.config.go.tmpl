@@ -28,6 +28,8 @@ type Services struct {
 	ServerPing *ServerPingService
 {{- if .DB}}
 	DatabasePing *DatabasePingService
+	Signup       *SignupService
+	Login        *LoginService
 {{- end}}
 {{- if .Payment}}
 	PaymentProcessor *PaymentProcessorService
@@ -39,6 +41,8 @@ func New(deps Deps) *Services {
 		ServerPing: NewServerPingService(),
 {{- if .DB}}
 		DatabasePing: NewDatabasePingService(deps.DB),
+		Signup:       NewSignupService(deps.DB),
+		Login:        NewLoginService(deps.DB),
 {{- end}}
 {{- if .Payment}}
 		PaymentProcessor: NewPaymentProcessorService(deps.Payment),

@@ -2,7 +2,8 @@
 ALLOWED_ORIGINS=http://localhost:4200
 {{- if .DB}}
 
-# Supabase project URL and API key (use the service role key only on a trusted server)
+# Supabase project URL and the anon (public) API key. Signup and login are user-facing,
+# so do not use the service_role key here.
 SUPABASE_URL=
 SUPABASE_KEY=
 {{- end}}

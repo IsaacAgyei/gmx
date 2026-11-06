@@ -1,0 +1,51 @@
+package signup
+
+import (
+	"errors"
+	"log"
+	"net/http"
+
+	"{{.Module}}/database"
+	"{{.Module}}/service"
+
+	"github.com/gin-gonic/gin"
+)
+
+// Request is the JSON body of POST <group>/auth/signup.
+// Supabase enforces its own password policy on top of the length check here.
+type Request struct {
+	Email    string `json:"email" binding:"required,email,max=254"`
+	Password string `json:"password" binding:"required,min=6,max=72"`
+	Username string `json:"username" binding:"required,min=3,max=30"`
+}
+
+// RegisterSignupRoutes registers POST <group>/auth/signup with a JSON body:
+// {"email": "user@example.com", "password": "secret-password", "username": "someone"}
+func RegisterSignupRoutes(rg *gin.RouterGroup, signupSvc *service.SignupService) {
+	g := rg.Group("/auth")
+
+	g.POST("/signup", func(c *gin.Context) {
+		var req Request
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "a valid email, a username of 3 to 30 characters and a password of 6 to 72 characters are required"})
+			return
+		}
+
+		err := signupSvc.SignUp(c.Request.Context(), req.Email, req.Password, req.Username)
+		switch {
+		case err == nil:
+			c.JSON(http.StatusCreated, gin.H{"message": "signup successful. If email confirmation is enabled, check your inbox to confirm your account"})
+		case errors.Is(err, database.ErrUserExists):
+			c.JSON(http.StatusConflict, gin.H{"message": "an account with this email already exists"})
+		case errors.Is(err, database.ErrWeakPassword):
+			c.JSON(http.StatusBadRequest, gin.H{"message": "password does not meet the password requirements"})
+		case errors.Is(err, database.ErrRateLimited):
+			c.JSON(http.StatusTooManyRequests, gin.H{"message": "too many attempts, try again later"})
+		case errors.Is(err, service.ErrAuthNotConfigured):
+			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "authentication is not available"})
+		default:
+			log.Printf("signup failed: %v", err) // never log the password
+			c.JSON(http.StatusBadGateway, gin.H{"message": "signup could not be completed. Please try again."})
+		}
+	})
+}

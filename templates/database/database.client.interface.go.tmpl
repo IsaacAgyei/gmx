@@ -4,6 +4,7 @@ package database
 
 import (
 	"context"
+	"errors"
 )
 
 // UserProfile is the subset of user_profile that is safe to expose (no email).
@@ -12,7 +13,32 @@ type UserProfile struct {
 	Username string `json:"username"`
 }
 
+// AuthSession is the session issued by the auth provider after a successful sign-in.
+type AuthSession struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"` // seconds until AccessToken expires
+	UserID       string `json:"user_id"`
+}
+
+// Errors returned by SignUp and SignIn. Callers compare with errors.Is; any other
+// error means the provider failed or could not be reached.
+var (
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrEmailNotConfirmed  = errors.New("email not confirmed")
+	ErrUserExists         = errors.New("user already exists")
+	ErrWeakPassword       = errors.New("password does not meet the password policy")
+	ErrRateLimited        = errors.New("too many requests")
+)
+
 type IDatabase interface {
 	Close()
 	Ping(ctx context.Context) error
+
+	// SignUp registers a user with email, password and username. The provider owns and stores the user;
+	// the username is passed as user metadata (raw_user_meta_data->>'username').
+	SignUp(ctx context.Context, email, password, username string) error
+	// SignIn verifies the credentials and returns the access and refresh tokens.
+	SignIn(ctx context.Context, email, password string) (*AuthSession, error)
 }

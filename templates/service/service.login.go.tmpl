@@ -1,0 +1,25 @@
+package service
+
+import (
+	"context"
+	"strings"
+
+	"{{.Module}}/database"
+)
+
+// LoginService verifies credentials with the auth provider and returns the session tokens.
+type LoginService struct {
+	db database.IDatabase
+}
+
+func NewLoginService(db database.IDatabase) *LoginService {
+	return &LoginService{db: db}
+}
+
+// Login returns the access and refresh tokens. Errors are the database.Err* values or a provider failure.
+func (s *LoginService) Login(ctx context.Context, email, password string) (*database.AuthSession, error) {
+	if s.db == nil {
+		return nil, ErrAuthNotConfigured
+	}
+	return s.db.SignIn(ctx, strings.TrimSpace(email), password)
+}

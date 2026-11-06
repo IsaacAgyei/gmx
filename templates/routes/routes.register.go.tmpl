@@ -9,6 +9,10 @@ import (
 	"{{.Module}}/routes/payments"
 {{- end}}
 	"{{.Module}}/routes/ping"
+{{- if .DB}}
+	"{{.Module}}/routes/login"
+	"{{.Module}}/routes/signup"
+{{- end}}
 	"{{.Module}}/service"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +20,7 @@ import (
 
 type Handler struct {
 {{- if .DB}}
-	DB database.IDatabase // may be nil (tests); /test/db then reports 503
+	DB database.IDatabase // may be nil (tests); /test/db and /auth/* then report 503
 {{- end}}
 {{- if .Payment}}
 	Pay paymentprocessor.IPaymentProcessor // may be nil (tests); payments then fail with 502
@@ -38,6 +42,10 @@ func (h *Handler) Register(engine *gin.Engine) {
 	v1 := engine.Group("{{.Prefix}}")
 
 	ping.RegisterPingRoutes(v1, svc.ServerPing{{if .DB}}, svc.DatabasePing{{end}}) // GET {{.Prefix}}/test/ping{{if .DB}}, GET {{.Prefix}}/test/db{{end}}
+{{- if .DB}}
+	signup.RegisterSignupRoutes(v1, svc.Signup) // POST {{.Prefix}}/auth/signup
+	login.RegisterLoginRoutes(v1, svc.Login)    // POST {{.Prefix}}/auth/login
+{{- end}}
 {{- if .Payment}}
 	payments.RegisterPaymentRoutes(v1, svc.PaymentProcessor) // POST {{.Prefix}}/payments/payment
 {{- end}}

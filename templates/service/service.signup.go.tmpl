@@ -1,0 +1,29 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"strings"
+
+	"{{.Module}}/database"
+)
+
+// ErrAuthNotConfigured is returned when the services were built without a database (tests).
+var ErrAuthNotConfigured = errors.New("auth not configured")
+
+// SignupService registers new users with the auth provider.
+type SignupService struct {
+	db database.IDatabase
+}
+
+func NewSignupService(db database.IDatabase) *SignupService {
+	return &SignupService{db: db}
+}
+
+// SignUp creates the user. Errors are the database.Err* values or a provider failure.
+func (s *SignupService) SignUp(ctx context.Context, email, password, username string) error {
+	if s.db == nil {
+		return ErrAuthNotConfigured
+	}
+	return s.db.SignUp(ctx, strings.TrimSpace(email), password, strings.TrimSpace(username))
+}

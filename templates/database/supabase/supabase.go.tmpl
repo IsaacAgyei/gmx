@@ -1,4 +1,4 @@
-// Package supabase implements database.IDatabase on top of Supabase (PostgREST).
+// Package supabase implements database.IDatabase on top of Supabase (PostgREST + Auth).
 package supabase
 
 import (
@@ -9,6 +9,7 @@ import (
 
 	"{{.Module}}/database"
 
+	"github.com/supabase-community/gotrue-go/types"
 	supa "github.com/supabase-community/supabase-go"
 )
 
@@ -17,6 +18,8 @@ type DB struct {
 }
 
 // New reads SUPABASE_URL and SUPABASE_KEY from the environment.
+// Use the anon (public) key: sign-up and sign-in are user-facing calls, so the
+// service_role key must not be used for them.
 func New(ctx context.Context) (database.IDatabase, error) {
 	url := os.Getenv("SUPABASE_URL")
 	key := os.Getenv("SUPABASE_KEY")
@@ -47,8 +50,40 @@ func (db *DB) Ping(ctx context.Context) error {
 	return nil
 }
 
+// SignUp creates the user in Supabase Auth (auth.users, managed by Supabase).
+// If email confirmation is enabled in your project, no session is issued until
+// the user confirms their email.
+func (db *DB) SignUp(ctx context.Context, email, password, username string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, err := db.Supabase.Auth.Signup(types.SignupRequest{
+		Email:    email,
+		Password: password,
+		Data:     map[string]interface{}{"username": username},
+	})
+	return mapAuthError(err)
+}
 
-
-
-
-
+// SignIn verifies email and password with Supabase Auth and returns the JWT access
+// token and the refresh token.
+//
+// It deliberately calls db.Supabase.Auth directly. The client-level helper
+// db.Supabase.SignInWithEmailPassword also stores the session on the shared client,
+// which would make every later request from this server run as that user.
+func (db *DB) SignIn(ctx context.Context, email, password string) (*database.AuthSession, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	resp, err := db.Supabase.Auth.SignInWithEmailPassword(email, password)
+	if err != nil {
+		return nil, mapAuthError(err)
+	}
+	return &database.AuthSession{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		TokenType:    resp.TokenType,
+		ExpiresIn:    int(resp.ExpiresIn),
+		UserID:       resp.User.ID.String(),
+	}, nil
+}

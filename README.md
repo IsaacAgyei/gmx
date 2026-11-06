@@ -12,6 +12,7 @@ gmx build myapi --db supabase --payment stripe
 - CORS configured through environment variables
 - Optional Supabase database layer behind an `IDatabase` interface, so it is easy to mock and swap
 - Optional Stripe payment layer behind an `IPaymentProcessor` interface, with a `POST /payments/payment` route that takes a JSON body
+- With `--db supabase`: email/password `POST /auth/signup` and `POST /auth/login` backed by Supabase Auth (returns access and refresh tokens)
 - Health-check endpoints (`/test/ping`, `/test/db`) to verify your setup
 - Tests included for the server, routes and services
 - `.env.example` and `.gitignore` generated for you

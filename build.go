@@ -45,6 +45,7 @@ var paymentDeps = map[string][]string{
 //	database/*.tmpl, database/<provider>/...                 only with --db (that provider)
 //	paymentprocessor/*.tmpl, paymentprocessor/<provider>/... only with --payment (that provider)
 //	routes/payments/..., service/service.paymentprocessor.*  only with --payment
+//	routes/signup, routes/login, service/service.{signup,login}.*  only with --db
 //	service/service.database.*                               only with --db
 func enabled(rel string, d Data) bool {
 	parts := strings.Split(rel, "/")
@@ -56,9 +57,13 @@ func enabled(rel string, d Data) bool {
 		return d.Payment != "" && (len(parts) == 2 || parts[1] == d.Payment)
 	case parts[0] == "routes" && len(parts) > 2 && parts[1] == "payments":
 		return d.Payment != ""
+	case parts[0] == "routes" && len(parts) > 2 && (parts[1] == "signup" || parts[1] == "login"):
+		return d.DB != ""
 	case parts[0] == "service" && strings.HasPrefix(name, "service.paymentprocessor."):
 		return d.Payment != ""
 	case parts[0] == "service" && strings.HasPrefix(name, "service.database."):
+		return d.DB != ""
+	case parts[0] == "service" && (strings.HasPrefix(name, "service.signup.") || strings.HasPrefix(name, "service.login.")):
 		return d.DB != ""
 	}
 	return true
@@ -184,6 +189,7 @@ func runBuild(args []string) error {
 	fmt.Printf("  go build .\n  go run .\n  curl localhost:8080%s/test/ping\n", data.Prefix)
 	if data.DB != "" {
 		fmt.Printf("  curl localhost:8080%s/test/db\n", data.Prefix)
+		fmt.Printf("  curl -X POST localhost:8080%s/auth/signup -H 'Content-Type: application/json' \\\n    -d '{\"email\": \"you@yourdomain.com\", \"password\": \"secret123\", \"username\": \"yourname\"}'\n", data.Prefix)
 	}
 	if data.Payment != "" {
 		fmt.Printf("  curl -X POST localhost:8080%s/payments/payment -H 'Content-Type: application/json' \\\n    -d '{\"amount\": 2000, \"currency\": \"usd\", \"payment_method\": \"pm_card_visa\"}'\n", data.Prefix)

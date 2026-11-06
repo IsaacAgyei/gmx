@@ -1,0 +1,87 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"{{.Module}}/database"
+)
+
+// fakeAuthDB implements database.IDatabase for the auth service tests.
+type fakeAuthDB struct {
+	signUpErr error
+	signInErr error
+	session   *database.AuthSession
+	gotEmail  string
+	gotPass   string
+	gotUser   string
+}
+
+func (f *fakeAuthDB) Close()                         {}
+func (f *fakeAuthDB) Ping(ctx context.Context) error { return nil }
+
+func (f *fakeAuthDB) SignUp(ctx context.Context, email, password, username string) error {
+	f.gotEmail, f.gotPass, f.gotUser = email, password, username
+	return f.signUpErr
+}
+
+func (f *fakeAuthDB) SignIn(ctx context.Context, email, password string) (*database.AuthSession, error) {
+	f.gotEmail, f.gotPass = email, password
+	if f.signInErr != nil {
+		return nil, f.signInErr
+	}
+	return f.session, nil
+}
+
+func TestSignupNotConfigured(t *testing.T) {
+	err := NewSignupService(nil).SignUp(context.Background(), "a@b.co", "secret1", "bob")
+	if !errors.Is(err, ErrAuthNotConfigured) {
+		t.Fatalf("got %v, want ErrAuthNotConfigured", err)
+	}
+}
+
+func TestSignupPassesTrimmedEmail(t *testing.T) {
+	db := &fakeAuthDB{}
+	if err := NewSignupService(db).SignUp(context.Background(), "  a@b.co ", "secret1", " bob "); err != nil {
+		t.Fatal(err)
+	}
+	if db.gotEmail != "a@b.co" || db.gotPass != "secret1" || db.gotUser != "bob" {
+		t.Fatalf("got %q / %q / %q", db.gotEmail, db.gotPass, db.gotUser)
+	}
+}
+
+func TestSignupUserExists(t *testing.T) {
+	db := &fakeAuthDB{signUpErr: database.ErrUserExists}
+	err := NewSignupService(db).SignUp(context.Background(), "a@b.co", "secret1", "bob")
+	if !errors.Is(err, database.ErrUserExists) {
+		t.Fatalf("got %v, want ErrUserExists", err)
+	}
+}
+
+func TestLoginNotConfigured(t *testing.T) {
+	_, err := NewLoginService(nil).Login(context.Background(), "a@b.co", "secret1")
+	if !errors.Is(err, ErrAuthNotConfigured) {
+		t.Fatalf("got %v, want ErrAuthNotConfigured", err)
+	}
+}
+
+func TestLoginReturnsSession(t *testing.T) {
+	want := &database.AuthSession{AccessToken: "jwt", RefreshToken: "refresh", TokenType: "bearer", ExpiresIn: 3600, UserID: "u1"}
+	db := &fakeAuthDB{session: want}
+	got, err := NewLoginService(db).Login(context.Background(), " a@b.co", "secret1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want || db.gotEmail != "a@b.co" {
+		t.Fatalf("got %+v email %q", got, db.gotEmail)
+	}
+}
+
+func TestLoginInvalidCredentials(t *testing.T) {
+	db := &fakeAuthDB{signInErr: database.ErrInvalidCredentials}
+	_, err := NewLoginService(db).Login(context.Background(), "a@b.co", "wrong")
+	if !errors.Is(err, database.ErrInvalidCredentials) {
+		t.Fatalf("got %v, want ErrInvalidCredentials", err)
+	}
+}

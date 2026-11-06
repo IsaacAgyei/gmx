@@ -1,0 +1,43 @@
+package supabase
+
+import (
+	"errors"
+	"testing"
+
+	"{{.Module}}/database"
+)
+
+func TestMapAuthError(t *testing.T) {
+	cases := []struct {
+		in   string
+		want error
+	}{
+		{`{"code":400,"error_code":"invalid_credentials","msg":"Invalid login credentials"}`, database.ErrInvalidCredentials},
+		{"Invalid login credentials", database.ErrInvalidCredentials},
+		{`{"error_code":"email_not_confirmed","msg":"Email not confirmed"}`, database.ErrEmailNotConfirmed},
+		{`{"error_code":"user_already_exists","msg":"User already registered"}`, database.ErrUserExists},
+		{`{"error_code":"weak_password","msg":"Password should be at least 6 characters."}`, database.ErrWeakPassword},
+		{`{"error_code":"over_request_rate_limit","msg":"Request rate limit reached"}`, database.ErrRateLimited},
+	}
+	for _, c := range cases {
+		if got := mapAuthError(errors.New(c.in)); !errors.Is(got, c.want) {
+			t.Errorf("mapAuthError(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestMapAuthErrorUnknownAndNil(t *testing.T) {
+	if mapAuthError(nil) != nil {
+		t.Fatal("nil must map to nil")
+	}
+	boom := errors.New("connection refused")
+	got := mapAuthError(boom)
+	if !errors.Is(got, boom) {
+		t.Fatalf("unknown error must stay wrapped, got %v", got)
+	}
+	for _, sentinel := range []error{database.ErrInvalidCredentials, database.ErrUserExists, database.ErrWeakPassword, database.ErrEmailNotConfirmed, database.ErrRateLimited} {
+		if errors.Is(got, sentinel) {
+			t.Fatalf("unknown error must not match %v", sentinel)
+		}
+	}
+}
