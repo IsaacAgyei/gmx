@@ -6,9 +6,22 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
+	"strings"
 )
 
-const version = "0.1.1"
+// version can be overridden with: go build -ldflags "-X main.version=1.2.3".
+// With `go install ...@vX.Y.Z` it falls back to the module version.
+var version = "dev"
+
+func init() {
+	if version != "dev" {
+		return
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+		version = strings.TrimPrefix(bi.Main.Version, "v")
+	}
+}
 
 const usage = `gmx - Go + Gin project generator
 
