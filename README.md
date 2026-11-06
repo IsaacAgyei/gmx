@@ -131,11 +131,14 @@ myapi/
 ├── main.go                  loads .env, connects to the database, starts the server
 ├── .env.example             ALLOWED_ORIGINS, SUPABASE_URL, SUPABASE_KEY
 ├── database/
-│   ├── database.go          IDatabase interface and shared types
-│   └── supabase/            Supabase implementation
+│   ├── database.client.interface.go   IDatabase interface and shared types
+│   └── supabase/
+│       └── supabase.go                Supabase implementation
 ├── http/                    Gin engine and CORS
 ├── routes/                  route groups and the ping/db test routes
-└── service/                 business logic used by the routes
+└── service/
+    ├── service.ping.go              PingService (ping and db ping logic)
+    └── service.supabase.ping.go     Services registry and constructor
 ```
 
 Without `--db`, the `database/` directory and the `/test/db` route are omitted. The generated project also contains its own README with details on adding routes.
