@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// only turns off Gin's debug logging so the test output stays quiet. It isn't a test.
 func init() { gin.SetMode(gin.TestMode) }
 
 func newEngine() *gin.Engine {
@@ -19,6 +20,9 @@ func newEngine() *gin.Engine {
 	return engine
 }
 
+// TestAllRoutesLiveUnderTheVersionedPrefix checks every registered route and
+// fails if any path does not start with /api/v1/, so unversioned routes
+// can't be added by accident.
 func TestAllRoutesLiveUnderTheVersionedPrefix(t *testing.T) {
 	for _, r := range newEngine().Routes() {
 		if !strings.HasPrefix(r.Path, "{{.Prefix}}/") {
@@ -27,6 +31,9 @@ func TestAllRoutesLiveUnderTheVersionedPrefix(t *testing.T) {
 	}
 }
 
+
+// TestPingReturnsPong is a smoke test: GET /api/v1/test/server/ping must
+// return 200 with "pong" in the body, proving the router is wired up.
 func TestPingReturnsPong(t *testing.T) {
 	rec := httptest.NewRecorder()
 	newEngine().ServeHTTP(rec, httptest.NewRequest("GET", "{{.Prefix}}/test/ping", nil))

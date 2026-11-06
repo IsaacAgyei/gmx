@@ -1,0 +1,67 @@
+// Package stripe implements paymentprocessor.IPaymentProcessor on top of Stripe.
+package stripe
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"strings"
+
+	"{{.Module}}/paymentprocessor"
+
+	sdk "github.com/stripe/stripe-go/v82"
+)
+
+type Processor struct {
+	client *sdk.Client
+}
+
+// New reads STRIPE_TEST_KEY from the environment.
+func New() (paymentprocessor.IPaymentProcessor, error) {
+	key := os.Getenv("STRIPE_TEST_KEY")
+	if key == "" {
+		return nil, fmt.Errorf("STRIPE_TEST_KEY must be set")
+	}
+
+	log.Println("Stripe client initialized")
+	return &Processor{client: sdk.NewClient(key)}, nil
+}
+
+// Payment creates and confirms a payment intent from req.
+// On success it returns a user-facing message; on failure a wrapped error.
+func (p *Processor) Payment(ctx context.Context, req paymentprocessor.PaymentRequest) (string, error) {
+	auto := &sdk.PaymentIntentCreateAutomaticPaymentMethodsParams{Enabled: sdk.Bool(true)}
+	confirm := &sdk.PaymentIntentConfirmParams{PaymentMethod: sdk.String(req.PaymentMethod)}
+	if req.ReturnURL != "" {
+		confirm.ReturnURL = sdk.String(req.ReturnURL)
+	} else {
+		// no return_url, so only methods that never redirect the customer can be used
+		auto.AllowRedirects = sdk.String("never")
+	}
+
+	pi, err := p.client.V1PaymentIntents.Create(ctx, &sdk.PaymentIntentCreateParams{
+		Amount:                  sdk.Int64(req.Amount),
+		Currency:                sdk.String(strings.ToLower(req.Currency)),
+		AutomaticPaymentMethods: auto,
+	})
+	if err != nil {
+		return "", fmt.Errorf("create payment intent: %w", err)
+	}
+
+	result, err := p.client.V1PaymentIntents.Confirm(ctx, pi.ID, confirm)
+	if err != nil {
+		return "", fmt.Errorf("confirm payment intent %s: %w", pi.ID, err)
+	}
+
+	switch result.Status {
+	case sdk.PaymentIntentStatusSucceeded:
+		return "Your payment was successful. Thank you!", nil
+	case sdk.PaymentIntentStatusProcessing:
+		return "Your payment is processing. We'll let you know once it completes.", nil
+	case sdk.PaymentIntentStatusRequiresAction:
+		return "", fmt.Errorf("payment %s requires additional authentication", result.ID)
+	default:
+		return "", fmt.Errorf("payment %s did not complete (status: %s)", result.ID, result.Status)
+	}
+}

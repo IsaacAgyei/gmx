@@ -6,3 +6,8 @@ ALLOWED_ORIGINS=http://localhost:4200
 SUPABASE_URL=
 SUPABASE_KEY=
 {{- end}}
+{{- if .Payment}}
+
+# Stripe secret key (use a sk_test_... key while developing; never commit it)
+STRIPE_TEST_KEY=
+{{- end}}

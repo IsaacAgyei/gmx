@@ -6,8 +6,8 @@ import (
 	"{{.Module}}/service"
 )
 
-func TestPingService(t *testing.T) {
-	if got := service.New({{if .DB}}nil{{end}}).Ping.Pong(); got != "pong" {
-		t.Errorf("Pong() = %q", got)
+func TestServerPingService(t *testing.T) {
+	if got := service.New(service.Deps{}).ServerPing.Ping(); got != "pong" {
+		t.Errorf("Ping() = %q", got)
 	}
 }

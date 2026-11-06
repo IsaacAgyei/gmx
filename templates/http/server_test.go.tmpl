@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	routes "{{.Module}}/routes"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,7 +15,7 @@ func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	t.Setenv("ALLOWED_ORIGINS", "https://app.example.com, https://www.app.example.com")
-	return New({{if .DB}}nil{{end}})
+	return New(&routes.Handler{})
 }
 
 func serve(s *Server, method, path string, headers map[string]string) *httptest.ResponseRecorder {
@@ -79,7 +81,7 @@ func TestServer_CORSOnlyAllowsListedOrigins(t *testing.T) {
 func TestServer_CORSDefaultsToLocalDevServer(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("ALLOWED_ORIGINS", "")
-	s := New({{if .DB}}nil{{end}})
+	s := New(&routes.Handler{})
 
 	rec := serve(s, "GET", "/nope", map[string]string{"Origin": "http://localhost:4200"})
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:4200" {

@@ -1,0 +1,8 @@
+package service
+
+// ServerPingService reports that the server is up. It has no dependencies.
+type ServerPingService struct{}
+
+func NewServerPingService() *ServerPingService { return &ServerPingService{} }
+
+func (s *ServerPingService) Ping() string { return "pong" }

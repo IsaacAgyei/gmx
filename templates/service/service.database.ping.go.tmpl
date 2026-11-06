@@ -1,0 +1,24 @@
+package service
+
+import (
+	"context"
+	"errors"
+
+	"{{.Module}}/database"
+)
+
+// DatabasePingService checks that the database is reachable.
+type DatabasePingService struct {
+	db database.IDatabase
+}
+
+func NewDatabasePingService(db database.IDatabase) *DatabasePingService {
+	return &DatabasePingService{db: db}
+}
+
+func (s *DatabasePingService) Ping(ctx context.Context) error {
+	if s.db == nil {
+		return errors.New("database not configured")
+	}
+	return s.db.Ping(ctx)
+}

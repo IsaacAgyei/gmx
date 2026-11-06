@@ -9,6 +9,11 @@ curl localhost:8080{{.Prefix}}/test/ping
 {{- if .DB}}
 curl localhost:8080{{.Prefix}}/test/db
 {{- end}}
+{{- if .Payment}}
+curl -X POST localhost:8080{{.Prefix}}/payments/payment \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 2000, "currency": "usd", "payment_method": "pm_card_visa"}'
+{{- end}}
 go test ./...
 ```
 
@@ -18,11 +23,16 @@ go test ./...
 | --- | --- |
 | `main.go` | loads `.env`, starts the server |
 | `http/` | Gin engine + CORS (`ALLOWED_ORIGINS`) |
-| `routes/routes.go` | parent group `{{.Prefix}}`, registers the routes |
+| `routes/routes.register.go` | parent group `{{.Prefix}}`, registers the routes |
 | `routes/ping/` | the placeholder route |
 {{- if .DB}}
 | `database/database.client.interface.go` | `IDatabase` interface and shared types |
 | `database/supabase/supabase.go` | Supabase implementation |
+{{- end}}
+{{- if .Payment}}
+| `paymentprocessor/interface.payment.processor.go` | `IPaymentProcessor` interface |
+| `paymentprocessor/{{.Payment}}/` | {{.Payment}} implementation (needs `STRIPE_TEST_KEY`) |
+| `routes/payments/` | payment route |
 {{- end}}
 | `service/` | services used by the routes |
 
@@ -30,4 +40,4 @@ go test ./...
 
 1. Add `service/<name>.go` and a field on `service.Services`.
 2. Add `routes/<name>/<name>.go` with a `Register...Routes(rg, svc)` function.
-3. Register it in `routes/routes.go`.
+3. Register it in `routes/routes.register.go`.

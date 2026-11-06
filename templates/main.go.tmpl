@@ -9,7 +9,10 @@ import (
 {{- if .DB}}
 	"{{.Module}}/database/{{.DB}}"
 {{- end}}
-
+{{- if .Payment}}
+	"{{.Module}}/paymentprocessor/{{.Payment}}"
+{{- end}}
+	"{{.Module}}/routes"
 	server "{{.Module}}/http"
 
 	"github.com/joho/godotenv"
@@ -20,17 +23,26 @@ func main() {
 		log.Println("No .env file found, falling back to system env")
 	}
 
+	h := &routes.Handler{}
 {{- if .DB}}
+
 	db, err := {{.DB}}.New(context.Background())
 	if err != nil {
 		log.Fatal("Database setup failed: ", err)
 	}
 	defer db.Close()
-
-	s := server.New(db)
-{{- else}}
-	s := server.New()
+	h.DB = db
 {{- end}}
+{{- if .Payment}}
+
+	pay, err := {{.Payment}}.New()
+	if err != nil {
+		log.Fatal("Payment processor setup failed: ", err)
+	}
+	h.Pay = pay
+{{- end}}
+
+	s := server.New(h)
 	if err := s.Run(); err != nil {
 		log.Fatal("Server failed to start: ", err)
 	}

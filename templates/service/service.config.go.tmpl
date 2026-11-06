@@ -1,0 +1,47 @@
+// Package service holds the services used by the routes.
+//
+// To add one: create service.<name>.go with a New<Name>Service constructor, add a field to Services
+// (and to Deps if it needs a new dependency) and wire it up in New.
+package service
+
+import (
+{{- if .DB}}
+	"{{.Module}}/database"
+{{- end}}
+{{- if .Payment}}
+	"{{.Module}}/paymentprocessor"
+{{- end}}
+)
+
+// Deps are the external dependencies the services are built from. Any of them may be nil (tests).
+type Deps struct {
+{{- if .DB}}
+	DB database.IDatabase
+{{- end}}
+{{- if .Payment}}
+	Payment paymentprocessor.IPaymentProcessor
+{{- end}}
+}
+
+// Services is the registry of all services available to the routes.
+type Services struct {
+	ServerPing *ServerPingService
+{{- if .DB}}
+	DatabasePing *DatabasePingService
+{{- end}}
+{{- if .Payment}}
+	PaymentProcessor *PaymentProcessorService
+{{- end}}
+}
+
+func New(deps Deps) *Services {
+	return &Services{
+		ServerPing: NewServerPingService(),
+{{- if .DB}}
+		DatabasePing: NewDatabasePingService(deps.DB),
+{{- end}}
+{{- if .Payment}}
+		PaymentProcessor: NewPaymentProcessorService(deps.Payment),
+{{- end}}
+	}
+}

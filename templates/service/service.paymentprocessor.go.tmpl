@@ -1,0 +1,24 @@
+package service
+
+import (
+	"context"
+	"errors"
+
+	"{{.Module}}/paymentprocessor"
+)
+
+// PaymentProcessorService runs payments through the configured payment processor.
+type PaymentProcessorService struct {
+	pay paymentprocessor.IPaymentProcessor
+}
+
+func NewPaymentProcessorService(pay paymentprocessor.IPaymentProcessor) *PaymentProcessorService {
+	return &PaymentProcessorService{pay: pay}
+}
+
+func (s *PaymentProcessorService) Payment(ctx context.Context, req paymentprocessor.PaymentRequest) (string, error) {
+	if s.pay == nil {
+		return "", errors.New("payment processor not configured")
+	}
+	return s.pay.Payment(ctx, req)
+}

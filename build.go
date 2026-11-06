@@ -19,9 +19,10 @@ var templatesFS embed.FS
 
 // Data is what every template receives.
 type Data struct {
-	Module string // Go module path, e.g. "backend"
-	Prefix string // parent route group, e.g. "/api/v1"
-	DB     string // database provider: "" (none) or "supabase"
+	Module  string // Go module path, e.g. "backend"
+	Prefix  string // parent route group, e.g. "/api/v1"
+	DB      string // database provider: "" (none) or "supabase"
+	Payment string // payment processor: "" (none) or "stripe"
 }
 
 // dbProviders are the values accepted by --db; dbDeps are the extra modules each needs.
@@ -29,6 +30,38 @@ var dbProviders = []string{"supabase"}
 
 var dbDeps = map[string][]string{
 	"supabase": {"github.com/supabase-community/supabase-go@latest"},
+}
+
+// paymentProviders are the values accepted by --payment; paymentDeps are the extra modules each needs.
+var paymentProviders = []string{"stripe"}
+
+var paymentDeps = map[string][]string{
+	"stripe": {"github.com/stripe/stripe-go/v82@latest"},
+}
+
+// enabled reports whether the template at rel (relative to templates/, still
+// ending in .tmpl) belongs in a project generated with d.
+//
+//	database/*.tmpl, database/<provider>/...                 only with --db (that provider)
+//	paymentprocessor/*.tmpl, paymentprocessor/<provider>/... only with --payment (that provider)
+//	routes/payments/..., service/service.paymentprocessor.*  only with --payment
+//	service/service.database.*                               only with --db
+func enabled(rel string, d Data) bool {
+	parts := strings.Split(rel, "/")
+	name := parts[len(parts)-1]
+	switch {
+	case parts[0] == "database":
+		return d.DB != "" && (len(parts) == 2 || parts[1] == d.DB)
+	case parts[0] == "paymentprocessor":
+		return d.Payment != "" && (len(parts) == 2 || parts[1] == d.Payment)
+	case parts[0] == "routes" && len(parts) > 2 && parts[1] == "payments":
+		return d.Payment != ""
+	case parts[0] == "service" && strings.HasPrefix(name, "service.paymentprocessor."):
+		return d.Payment != ""
+	case parts[0] == "service" && strings.HasPrefix(name, "service.database."):
+		return d.DB != ""
+	}
+	return true
 }
 
 func contains(l []string, s string) bool {
@@ -54,6 +87,7 @@ func runBuild(args []string) error {
 	skip := fset.Bool("skip-install", false, "skip go get / go mod tidy")
 	force := fset.Bool("force", false, "allow a non-empty target directory")
 	db := fset.String("db", "", "database provider: supabase (default: none)")
+	payment := fset.String("payment", "", "payment processor: stripe (default: none)")
 
 	// Allow the directory argument before or after the flags.
 	var positional []string
@@ -83,7 +117,10 @@ func runBuild(args []string) error {
 	if *db != "" && !contains(dbProviders, *db) {
 		return fmt.Errorf("unknown --db %q (supported: %s)", *db, strings.Join(dbProviders, ", "))
 	}
-	data := Data{Module: *module, Prefix: p, DB: *db}
+	if *payment != "" && !contains(paymentProviders, *payment) {
+		return fmt.Errorf("unknown --payment %q (supported: %s)", *payment, strings.Join(paymentProviders, ", "))
+	}
+	data := Data{Module: *module, Prefix: p, DB: *db, Payment: *payment}
 
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 && !*force {
 		return fmt.Errorf("%s is not empty (use --force to write anyway)", dir)
@@ -101,12 +138,9 @@ func runBuild(args []string) error {
 			return nil
 		}
 		rel := strings.TrimPrefix(p, "templates/")
-		// database templates are opt-in: database/*.tmpl and database/<provider>/ for the chosen one
-		if strings.HasPrefix(rel, "database/") {
-			parts := strings.Split(rel, "/")
-			if data.DB == "" || (len(parts) > 2 && parts[1] != data.DB) {
-				return nil
-			}
+		// database / payment templates are opt-in (see enabled)
+		if !enabled(rel, data) {
+			return nil
 		}
 		rel = strings.TrimSuffix(rel, ".tmpl")
 		rel = path.Clean(rel)
@@ -144,12 +178,15 @@ func runBuild(args []string) error {
 	}
 
 	fmt.Printf("\nDone. Next:\n  cd %s\n", dir)
-	if data.DB != "" {
-		fmt.Println("  cp .env.example .env   # then fill in the database credentials")
+	if data.DB != "" || data.Payment != "" {
+		fmt.Println("  cp .env.example .env   # then fill in the credentials")
 	}
 	fmt.Printf("  go build .\n  go run .\n  curl localhost:8080%s/test/ping\n", data.Prefix)
 	if data.DB != "" {
 		fmt.Printf("  curl localhost:8080%s/test/db\n", data.Prefix)
+	}
+	if data.Payment != "" {
+		fmt.Printf("  curl -X POST localhost:8080%s/payments/payment -H 'Content-Type: application/json' \\\n    -d '{\"amount\": 2000, \"currency\": \"usd\", \"payment_method\": \"pm_card_visa\"}'\n", data.Prefix)
 	}
 	return nil
 }
@@ -169,6 +206,7 @@ func goMod(dir string, data Data, skip bool) error {
 	}
 	deps := append([]string{}, goDeps...)
 	deps = append(deps, dbDeps[data.DB]...)
+	deps = append(deps, paymentDeps[data.Payment]...)
 	fmt.Println("installing dependencies ...")
 	if err := runIn(dir, "go", append([]string{"get"}, deps...)...); err != nil {
 		fmt.Printf("\nwarning: could not install dependencies (%v).\nThe project files were created; run this inside %s when you are online:\n  go get %s && go mod tidy\n", err, dir, strings.Join(deps, " "))

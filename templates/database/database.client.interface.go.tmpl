@@ -4,13 +4,6 @@ package database
 
 import (
 	"context"
-	"errors"
-)
-
-var (
-	ErrNotFound     = errors.New("not found")
-	ErrUnauthorized = errors.New("unauthorized")
-	ErrConflict     = errors.New("conflict")
 )
 
 // UserProfile is the subset of user_profile that is safe to expose (no email).
@@ -22,6 +15,4 @@ type UserProfile struct {
 type IDatabase interface {
 	Close()
 	Ping(ctx context.Context) error
-	GetProfileByUsername(ctx context.Context, username string) (*UserProfile, error)
-	GetProfileByUserID(ctx context.Context, userID string) (*UserProfile, error)
 }

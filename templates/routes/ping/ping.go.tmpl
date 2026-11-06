@@ -9,14 +9,16 @@ import (
 )
 
 // RegisterPingRoutes registers GET <group>/test/ping{{if .DB}} and GET <group>/test/db{{end}}
-func RegisterPingRoutes(rg *gin.RouterGroup, svc *service.PingService) {
+func RegisterPingRoutes(rg *gin.RouterGroup, serverSvc *service.ServerPingService{{if .DB}}, dbSvc *service.DatabasePingService{{end}}) {
 	g := rg.Group("/test")
+
 	g.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": svc.Pong()})
+		c.JSON(http.StatusOK, gin.H{"message": serverSvc.Ping()})
 	})
 {{- if .DB}}
+
 	g.GET("/db", func(c *gin.Context) {
-		if err := svc.DBPing(c.Request.Context()); err != nil {
+		if err := dbSvc.Ping(c.Request.Context()); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"message": "database unavailable"})
 			return
 		}

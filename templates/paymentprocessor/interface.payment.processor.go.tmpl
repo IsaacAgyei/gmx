@@ -1,0 +1,21 @@
+// Package paymentprocessor defines the payment interface the services depend on.
+// Implementations live in subpackages (e.g. paymentprocessor/stripe).
+package paymentprocessor
+
+import (
+	"context"
+)
+
+// PaymentRequest is the JSON body of POST /payments/payment. The field names
+// match the Stripe PaymentIntent parameters of the same name.
+type PaymentRequest struct {
+	Amount        int64  `json:"amount" binding:"required,gt=0"`         // smallest currency unit, e.g. 2000 = $20.00
+	Currency      string `json:"currency" binding:"required,len=3"`      // three-letter ISO code, e.g. "usd"
+	PaymentMethod string `json:"payment_method" binding:"required"`      // e.g. "pm_card_visa" (test) or an id from Stripe.js
+	ReturnURL     string `json:"return_url" binding:"omitempty,url"`     // where redirect-based methods send the customer back
+}
+
+type IPaymentProcessor interface {
+	// Payment charges the request and returns a user-facing message on success.
+	Payment(ctx context.Context, req PaymentRequest) (string, error)
+}
