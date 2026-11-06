@@ -147,7 +147,7 @@ func runBuild(args []string) error {
 	if data.DB != "" {
 		fmt.Println("  cp .env.example .env   # then fill in the database credentials")
 	}
-	fmt.Printf("  go run .\n  curl localhost:8080%s/test/ping\n", data.Prefix)
+	fmt.Printf("  go build .\n  go run .\n  curl localhost:8080%s/test/ping\n", data.Prefix)
 	if data.DB != "" {
 		fmt.Printf("  curl localhost:8080%s/test/db\n", data.Prefix)
 	}
